@@ -1,0 +1,37 @@
+<settings>
+  <database>
+     <enable>true</enable>
+     <host>mec.usc.edu</host>
+     <user>garyc</user>
+     <pw>m3teknik</pw>
+     <name>pathway_mcmc_folate</name>
+  </database>
+  <inputfiles>
+    <trait>phenotypes.txt</trait>
+    <snplist>rslist.txt</snplist>
+    <study_geno>genotypes.txt</study_geno>
+    <study_env_var>envcov.txt</study_env_var>
+    <initmodel>initmodel.txt</initmodel>
+    <annotation_files>
+      <z_matrix>mygo.z2</z_matrix>
+      <a_matrix>mygo.a2</a_matrix>
+    </annotation_files>
+    <endo_files>
+      <prior_geno>genotypes.prior</prior_geno>
+      <prior_env_var>envcov.prior</prior_env_var>
+      <prior_endopheno>biomarkers.txt</prior_endopheno>
+      <selected_endo>biomarkers.z</selected_endo>
+    </endo_files>
+  </inputfiles>
+  <sampling>
+    <use_endoprior>false</use_endoprior> <!--endo,annotation-->
+    <use_a>true</use_a>
+    <use_z>true</use_z>
+    <logistic>false</logistic>
+    <marginal_prior>true</marginal_prior>
+    <max_order>2</max_order>
+    <main_effect_pref>3</main_effect_pref>
+    <iterations>10000</iterations>
+    <max_modelsize>20</max_modelsize>
+  </sampling>
+</settings>
