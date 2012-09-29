@@ -1,3 +1,4 @@
+#include<iostream>
 //#include "gwa.hpp"
 #include<gsl/gsl_blas.h>
 #include<gsl/gsl_linalg.h>
@@ -5,10 +6,12 @@
 //#include<gsl/gsl_randist.h>
 #include<gsl/gsl_cdf.h>
 #include<gsl/gsl_statistics_double.h>
-#include "pathwaysearch.hpp"
-#include "db_manager.hpp"
+//#include "pathwaysearch.hpp"
+//#include "db_manager.hpp"
 #include "utility.hpp"
 
+
+using namespace std;
 
 void debugMatrix(const gsl_matrix *m);
 
@@ -52,7 +55,9 @@ double MathUtils::corr(const double * data1,const double * data2,int len){
 
 void MathUtils::standardize(double * data,uint len){
     double meanbar = mean(data,len);
+  //cerr<<"Mean bar: "<<meanbar<<endl;
     double sdbar = SD(data,len,meanbar);
+  //cerr<<"SD bar: "<<sdbar<<endl;
     for(uint i=0;i<len;++i){
       data[i]-=meanbar;
       data[i]/=sdbar;
@@ -251,6 +256,44 @@ bool MathUtils::scoreTest(double * aff, double * designMat, double * betas, doub
   return true;
 }
 
+
+float MathUtils::binom_prob(int n,int k,float p){
+  //return 1;
+        float num=1;
+        for(int i=n;i>(n-k);--i){
+                num*=i;
+        }
+        float den=1;
+        for(int i=k;i>1;--i){
+                den*=i;
+        }
+        //cerr<<"num:"<<num<<" den: "<<den<<endl;
+        //cerr<<"n: "<<n<<"k: "<<k<<endl;
+
+        float binom = num/den*pow(p,k)*pow(1.-p,n-k);
+        //cerr<<"choose: "<<1.*num/den<<" binom: "<<binom<<endl;
+        return binom;
+}
+
+float MathUtils::normal_pdf(float x,float mu,float sigma){
+        //float c = 2.506628;
+        float p = 1/(sqrt(6.283185*sigma*sigma) * exp(.5 * pow((x-mu)/sigma,2)));
+        return p;
+}
+
+float MathUtils::normal_cdf (float x, float mu, float sigma){
+/* Returns the cumulative probability density function for a normal distribution with mean as mu and standard deviation as sigma
+cumulative normal distribution
+                  x    2
+         1      /   -t  / 2
+     ---------- |  e         dt
+     sqrt(2 pi) /
+                 -inf
+*/
+   return (1+erf((x-mu)/(sigma*sqrt(2))))/2;
+}
+
+
 bool MathUtils::linReg(double * aff, double * designMat, double * betas, double * invInfoMatrix, int samplesize, int rank, double & logL, double * fitted){
   double xprimex[rank*rank];
   matrixMultiply(true,false,designMat,designMat,xprimex,samplesize,rank,samplesize,rank,rank,rank);
@@ -273,7 +316,7 @@ bool MathUtils::linReg(double * aff, double * designMat, double * betas, double 
   double sssr;
   for(int i=0;i<samplesize;++i) resid[i] = aff[i] - fitted[i];
   matrixMultiply(true,false,resid,resid,& sssr,samplesize,1,samplesize,1,1,1);
-  double sigma2 = 1.0*sssr/(samplesize-rank);
+  double sigma2 = 1.0*sssr/samplesize;
   //sssr/=samplesize;
   for(int i=0;i<rank;++i){
     for(int j=0;j<rank;++j){

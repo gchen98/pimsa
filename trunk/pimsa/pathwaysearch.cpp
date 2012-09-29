@@ -2,13 +2,14 @@
 #include<boost/property_tree/xml_parser.hpp>
 #include<gsl/gsl_blas.h>
 #include<gsl/gsl_linalg.h>
+#include"../common/main.hpp"
+#include"../common/analyzer.hpp"
+#include"../common/io.hpp"
+#include"../common/utility.hpp"
 #include "pathwaysearch.hpp"
 #include "db_manager.hpp"
 #include "mysqlrepository.hpp"
 #include "ramrepository.hpp"
-//#include "folate_dbclient.hpp"
-//#include "mygo_dbclient.hpp"
-#include "utility.hpp"
 
 #include<cstring>
 //short unsigned settings->max_order = 2;
@@ -91,9 +92,105 @@ int rowcount(const char * filename){
   return c;
 }
 
+MCMCSampler::MCMCSampler(){
+  expGeno_obs = NULL;
+  expGeno_prior = NULL;
+  dPhenoVector = NULL;
+  dStaticA = NULL;
+  dStaticZ = NULL;
+  cStudyGenoMatrix = NULL;
+  fStudyEnvMatrix = NULL;
+  fStudyEnvMatrix = NULL;
+  data = NULL;
+  math = NULL;
+  settings = NULL;
+  termWeights = NULL;
+  currentModel = NULL;
+  prevModel = NULL;
+  fBioMarkerMatrix=NULL;
+  fPriorEnvMatrix=NULL;
+  cPriorGenoMatrix=NULL;
+  selectedBiomarkersInZ=NULL;
+}
 
-MCMCSampler::MCMCSampler(pathway_settings_t * settings){
-  this->settings = settings;
+MCMCSampler::~MCMCSampler(){
+  cerr<<"Deleting MCMC sampler\n"; 
+  cerr<<"Closing file handles\n";
+  out_beta.close();
+  out_prior_beta.close();
+  out_prior_mean.close();
+  out_prior_var.close();
+  out_models.close();
+  if (expGeno_obs!=NULL) delete[] expGeno_obs;
+  if (expGeno_prior!=NULL) delete[] expGeno_prior;
+  if (dPhenoVector!=NULL) delete[] dPhenoVector;
+  for (unsigned int i=0;i<iTotalEnvCov;++i){
+    if (fStudyEnvMatrix!=NULL) delete[] fStudyEnvMatrix[i];
+  }
+  if (fStudyEnvMatrix!=NULL) delete[] fStudyEnvMatrix;
+  for (unsigned int i=0;i<iTotalSnps;++i){
+     if (cStudyGenoMatrix!=NULL) delete[] cStudyGenoMatrix[i];
+  }
+  if (cStudyGenoMatrix!=NULL) delete[] cStudyGenoMatrix;
+  if (data!=NULL) delete data;
+  if (math!=NULL) delete math;
+  if (settings->dynamic_prior){
+    for (unsigned int i=0;i<iTotalEnvCov;++i){
+      if (fPriorEnvMatrix!=NULL) delete[] fPriorEnvMatrix[i];
+    }
+    if (fPriorEnvMatrix!=NULL) delete[] fPriorEnvMatrix;
+    for (unsigned int i=0;i<iTotalSnps;++i){
+      if (cPriorGenoMatrix!=NULL) delete[] cPriorGenoMatrix[i];
+    }
+    if (cPriorGenoMatrix!=NULL) delete[] cPriorGenoMatrix;    
+    for(uint i=0;i<iTotalColInA;++i){
+      if (fBioMarkerMatrix!=NULL) delete[] fBioMarkerMatrix[i];
+    }
+    if (fBioMarkerMatrix!=NULL) delete[] fBioMarkerMatrix;
+    if (selectedBiomarkersInZ!=NULL) delete[] selectedBiomarkersInZ;
+  }else{
+    for(uint i=0;i<iTotalExposures;++i){
+      if (dStaticZ!=NULL) delete[] dStaticZ[i];
+    }
+    delete[]dStaticZ;
+    for(uint i=0;i<iTotalExposures;++i){
+      if (dStaticA!=NULL) delete[] dStaticA[i];
+    }
+    if (dStaticA!=NULL) delete[]dStaticA;
+  }
+  if (termWeights!=NULL) delete[] termWeights;
+  if (currentModel!=NULL) delete currentModel;
+  if (prevModel!=NULL) delete prevModel;
+  cerr<<"Cleaned up data \n";
+}
+
+void MCMCSampler::init(const ptree & pt){
+  settings = new pathway_settings_t;
+  settings->file_initmodel = pt.get<string>("settings.inputfiles.initmodel");
+  settings->file_snplist = pt.get<string>("settings.inputfiles.snplist");
+  settings->file_trait = pt.get<string>("settings.inputfiles.trait");
+  settings->file_study_geno = pt.get<string>("settings.inputfiles.study_geno");
+  settings->file_study_env_var = pt.get<string>("settings.inputfiles.study_env_var");
+  settings->file_prior_geno = pt.get<string>("settings.inputfiles.endo_files.prior_geno");
+  settings->file_prior_env_var = pt.get<string>("settings.inputfiles.endo_files.prior_env_var");
+  settings->file_prior_endopheno = pt.get<string>("settings.inputfiles.endo_files.prior_endopheno");
+  settings->file_selected_endo = pt.get<string>("settings.inputfiles.endo_files.selected_endo");
+  settings->file_z_matrix = pt.get<string>("settings.inputfiles.annotation_files.z_matrix");
+  settings->file_a_matrix = pt.get<string>("settings.inputfiles.annotation_files.a_matrix");
+  settings->usedb = getbool(pt.get<string>("settings.database.enable"));
+  settings->dbhost = pt.get<string>("settings.database.host");
+  settings->dbuser = pt.get<string>("settings.database.user");
+  settings->dbpw = pt.get<string>("settings.database.pw");
+  settings->dbname = pt.get<string>("settings.database.name");
+  settings->dynamic_prior = getbool(pt.get<string>("settings.sampling.use_endoprior"));
+  settings->use_a = getbool(pt.get<string>("settings.sampling.use_a"));
+  settings->use_z = getbool(pt.get<string>("settings.sampling.use_z"));
+  settings->logistic = getbool(pt.get<string>("settings.sampling.logistic"));
+  settings->marginal_prior = getbool(pt.get<string>("settings.sampling.marginal_prior"));
+  settings->max_order = pt.get<int>("settings.sampling.max_order");
+  settings->max_modelsize = pt.get<int>("settings.sampling.max_modelsize");
+  settings->iterations = pt.get<int>("settings.sampling.iterations");
+  settings->main_effect_pref = pt.get<double>("settings.sampling.main_effect_pref");
   cerr<<"Allocating memory\n";
   iTotalStudyPersons = rowcount(settings->file_trait.data());
   iTotalSnps = rowcount(settings->file_snplist.data());
@@ -175,58 +272,6 @@ MCMCSampler::MCMCSampler(pathway_settings_t * settings){
 
 }
 
-MCMCSampler::~MCMCSampler(){
-  cerr<<"Deleting MCMC sampler\n"; 
-  cerr<<"Closing file handles\n";
-  out_beta.close();
-  out_prior_beta.close();
-  out_prior_mean.close();
-  out_prior_var.close();
-  out_models.close();
-  cerr<<"Cleaning up data \n";
-  delete[] expGeno_obs;
-  delete[] expGeno_prior;
-  delete[] dPhenoVector;
-  for (unsigned int i=0;i<iTotalEnvCov;++i){
-    delete[] fStudyEnvMatrix[i];
-  }
-  delete[] fStudyEnvMatrix;
-  for (unsigned int i=0;i<iTotalSnps;++i){
-     delete[] cStudyGenoMatrix[i];
-  }
-  delete[] cStudyGenoMatrix;
-  delete data;
-  delete math;
-  if (settings->dynamic_prior){
-    for (unsigned int i=0;i<iTotalEnvCov;++i){
-      delete[] fPriorEnvMatrix[i];
-    }
-    delete[] fPriorEnvMatrix;
-    for (unsigned int i=0;i<iTotalSnps;++i){
-      delete[] cPriorGenoMatrix[i];
-    }
-    delete[] cPriorGenoMatrix;    
-    for(uint i=0;i<iTotalColInA;++i){
-      delete[] fBioMarkerMatrix[i];
-    }
-    delete[] fBioMarkerMatrix;
-    delete[] selectedBiomarkersInZ;
-    //if (settings->usedb) data = new MySqlFolateClientRepository(this,math,settings->dbname.data());
-  }else{
-    for(uint i=0;i<iTotalExposures;++i){
-      delete[] dStaticZ[i];
-    }
-    delete[]dStaticZ;
-    for(uint i=0;i<iTotalExposures;++i){
-      delete[] dStaticA[i];
-    }
-    delete[]dStaticA;
-  }
-  delete[] termWeights;
-  delete currentModel;
-  delete prevModel;
-  cerr<<"Cleaned up data \n";
-}
 
 
 void MCMCSampler::init(){
@@ -464,7 +509,7 @@ void MCMCSampler::updateCurrentModelString(string & currentModelString){
     currentModelString = ossmodel.str();
 }
 
-void MCMCSampler::doAnalysis(){
+void MCMCSampler::run(){
   // initialize current model
   init();
   uint & ms = currentModel->iModelSize;
@@ -1718,7 +1763,7 @@ void convertgeno(char * g,uint len,double * vec){
   }
 }
 
-int main(int argc,char * argv[]){
+int main_pimsa(int argc,char * argv[]){
   try{
     if (argc<2){
       cout<<"Usage: <XML settings file>\n";
@@ -1733,40 +1778,14 @@ int main(int argc,char * argv[]){
     boost::property_tree::ptree pt;
     read_xml(filename, pt);
     ifs.close();
-    pathway_settings_t * settings = new pathway_settings_t;
-    settings->file_initmodel = pt.get<string>("settings.inputfiles.initmodel");
-    settings->file_snplist = pt.get<string>("settings.inputfiles.snplist");
-    settings->file_trait = pt.get<string>("settings.inputfiles.trait");
-    settings->file_study_geno = pt.get<string>("settings.inputfiles.study_geno");
-    settings->file_study_env_var = pt.get<string>("settings.inputfiles.study_env_var");
-    settings->file_prior_geno = pt.get<string>("settings.inputfiles.endo_files.prior_geno");
-    settings->file_prior_env_var = pt.get<string>("settings.inputfiles.endo_files.prior_env_var");
-    settings->file_prior_endopheno = pt.get<string>("settings.inputfiles.endo_files.prior_endopheno");
-    settings->file_selected_endo = pt.get<string>("settings.inputfiles.endo_files.selected_endo");
-    settings->file_z_matrix = pt.get<string>("settings.inputfiles.annotation_files.z_matrix");
-    settings->file_a_matrix = pt.get<string>("settings.inputfiles.annotation_files.a_matrix");
-    settings->usedb = getbool(pt.get<string>("settings.database.enable"));
-    settings->dbhost = pt.get<string>("settings.database.host");
-    settings->dbuser = pt.get<string>("settings.database.user");
-    settings->dbpw = pt.get<string>("settings.database.pw");
-    settings->dbname = pt.get<string>("settings.database.name");
-    settings->dynamic_prior = getbool(pt.get<string>("settings.sampling.use_endoprior"));
-    settings->use_a = getbool(pt.get<string>("settings.sampling.use_a"));
-    settings->use_z = getbool(pt.get<string>("settings.sampling.use_z"));
-    settings->logistic = getbool(pt.get<string>("settings.sampling.logistic"));
-    settings->marginal_prior = getbool(pt.get<string>("settings.sampling.marginal_prior"));
-    settings->max_order = pt.get<int>("settings.sampling.max_order");
-    settings->max_modelsize = pt.get<int>("settings.sampling.max_modelsize");
-    settings->iterations = pt.get<int>("settings.sampling.iterations");
-    settings->main_effect_pref = pt.get<double>("settings.sampling.main_effect_pref");
      
-    MCMCSampler * pAnalyzer = new MCMCSampler(settings);
+    Analyzer * pAnalyzer = new MCMCSampler();
+    pAnalyzer->init(pt);
     // This begins the analysis
     double dtime = clock();
-    pAnalyzer->doAnalysis();
+    pAnalyzer->run();
     cerr<<"Total time for analysis: "<<(clock()-dtime)/CLOCKS_PER_SEC<<" seconds.\n";
     delete pAnalyzer;
-    delete settings;
   }catch(const char* message){
       cerr<<"Exception at main:"<<endl<<message<<endl;
   }

@@ -1,5 +1,9 @@
 #include <mysql.h>
 //#include "gwa.hpp"
+#include"../common/main.hpp"
+#include"../common/analyzer.hpp"
+#include"../common/io.hpp"
+#include"../common/utility.hpp"
 #include "pathwaysearch.hpp"
 #include "db_manager.hpp"
 #include "mysqlrepository.hpp"
