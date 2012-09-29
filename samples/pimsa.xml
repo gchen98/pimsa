@@ -24,7 +24,7 @@
     </endo_files>
   </inputfiles>
   <sampling>
-    <use_endoprior>true</use_endoprior> <!--endo,annotation-->
+    <use_endoprior>true</use_endoprior> <!--true,false-->
     <use_a>true</use_a>
     <use_z>true</use_z>
     <logistic>true</logistic>

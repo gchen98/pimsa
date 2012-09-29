@@ -190,14 +190,19 @@ private:
 
 
 
-class MCMCSampler{
+class MCMCSampler:public Analyzer{
 public:
-    MCMCSampler(pathway_settings_t * settings);
+    void init(const ptree & pt);
+    MCMCSampler();
+    ~MCMCSampler();
+    void run();
+    friend class DataManager;
+    friend class MySqlRepository;
+private:
     pathway_settings_t * settings;
     //MCMCSampler(GWA * pGWA,CommandArguments args);
-    void doAnalysis();
-    void doAnalysis2();
-    ~MCMCSampler();
+    //void doAnalysis();
+    //void doAnalysis2();
     // accessed by data managers so publicized
     ModelParams *currentModel,*prevModel,*proposed1,*proposed2;
 

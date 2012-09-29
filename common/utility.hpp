@@ -24,6 +24,9 @@ public:
     void outputMatrix(const double * mat, uint dim1, uint dim2);
     bool linReg(double * outcome, double * covariates, double * coeff, double * variances, int totalrows, int rank, double & logL, double * fitted);
     bool scoreTest(double * outcome, double * covariates, double * coeff, double * variances, int totalrows, int rank, double & logL, double & chiSq);
-private:
+    float binom_prob(int n,int k,float p);
+    float normal_pdf(float x,float mu,float sigma);
+    float  normal_cdf (float x, float mu, float sigma);
     gsl_rng * rng;
+private:
 };
