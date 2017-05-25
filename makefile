@@ -1,7 +1,7 @@
 include locations.mk
 
-COMMONCFLAGS = -Wall  -g
-COMMONLINKFLAGS = -lm
+COMMONCFLAGS = -Wall  -g -Iusr/local/Cellar/gsl/1.16/include
+COMMONLINKFLAGS = -lm -g
 COMMON_OBJS=analyzer.o main.o io.o utility.o
 # compiler
 CC = g++
@@ -28,7 +28,7 @@ endif
 ifneq ($(wildcard pimsa/*),)
 	OBJS+=db_manager.o pathwaysearch.o ramrepository.o mysqlrepository.o
 	PREPROC+=-Dpimsa
-	USE_DB=1
+	USE_DB=0
 endif
 
 ifneq ($(wildcard cnv/*),)

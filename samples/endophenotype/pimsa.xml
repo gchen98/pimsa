@@ -1,6 +1,6 @@
 <settings>
   <database>
-     <enable>true</enable>
+     <enable>false</enable>
      <host>mec.usc.edu</host>
      <user>garyc</user>
      <pw>m3teknik</pw>

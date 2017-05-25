@@ -1,3 +1,4 @@
+#ifdef USE_DB
 #include <mysql.h>
 //#include "gwa.hpp"
 #include"../common/main.hpp"
@@ -200,3 +201,4 @@ void MySqlRepository::retrieveModelFit(string & modelstr,  double & logL){
 }
 void MySqlRepository::storeModelFit(string & modelstr,  double & logL){}
 void MySqlRepository::listCachedEffects(){}
+#endif

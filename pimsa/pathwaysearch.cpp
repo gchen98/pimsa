@@ -209,8 +209,9 @@ void MCMCSampler::init(const ptree & pt){
     fStudyEnvMatrix[i] = new double[iTotalStudyPersons];
   }
   if (settings->usedb && !settings->marginal_prior){
-    data = new MySqlRepository(this,settings->dbhost.data(),settings->dbuser.data(),
-      settings->dbpw.data(),settings->dbname.data());
+  	#ifdef USE_DB
+    data = new MySqlRepository(this,settings->dbhost.data(),settings->dbuser.data(), settings->dbpw.data(),settings->dbname.data());
+	#endif
   }else{
     data = new RamRepository(settings->marginal_prior);
   }
