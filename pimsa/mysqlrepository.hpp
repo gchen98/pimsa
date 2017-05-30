@@ -1,4 +1,6 @@
+#ifdef USE_DB
 #include<mysql.h>
+#endif
 
 class MCMCSampler;
 
@@ -7,7 +9,9 @@ public:
    MySqlRepository(MCMCSampler * mcmc, const char * hostname, const char * username, const char * password, const char * dbname);
    ~MySqlRepository();
 private:
+#ifdef USE_DB
    MYSQL * mysql;
+#endif
    MCMCSampler * mcmc;
    int total;
    void sortKey(unsigned long int & effID1,unsigned long int & effID2);
